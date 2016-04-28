@@ -144,7 +144,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                         String phone = userPreferences.getString(Config.KEY_PREF_PHONE, null);
                         String message = "Emergency!\n"
                                 + userPreferences.getString(Config.KEY_PREF_NAME, null)
-                                + " is in Lat: " + lat + ", Lng: " + lng;
+                                + " is at http://maps.google.com/maps?q=" + lat + "," + lng;
                         try {
                             SmsManager smsManager = SmsManager.getDefault();
                             smsManager.sendTextMessage(phone, null, message, null, null);
