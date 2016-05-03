@@ -240,7 +240,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             for (int i = 0; i < directionItemList.size(); i++) {
                 String polyline = directionItemList.get(i).getPolyline();
                 final List<LatLng> decodedPath = PolyUtil.decode(polyline);
-                if (PolyUtil.isLocationOnPath(latLng, decodedPath, true, 20)) {
+                if (PolyUtil.isLocationOnPath(latLng, decodedPath, true, 40)) {
                     wayPoint = i;
                     double endLat = directionItemList.get(i).getEndLat();
                     double endLng = directionItemList.get(i).getEndLng();
@@ -250,24 +250,23 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
                     float distance = userLocation.distanceTo(endLocation);
 
-                    if (distance <= 10 && (i + 1) == directionItemList.size()) {
-                        String data = "You have reached your final destination";
+                    if (distance <= 20 && (i + 1) == directionItemList.size()) {
+                        String data = "You have reached your final destination.";
                         textToSpeech.speak(data, TextToSpeech.QUEUE_FLUSH, null, null);
                         textInstruction.setText(data);
                         updateLocation();
                         dataPreferences.edit().clear().apply();
                         directionItemList.clear();
-                    } else if (distance <= 10) {
+                    } else if (distance <= 20) {
                         updateLocation();
                     } else if (!directionItemList.get(i).isPathInstruction()) {
                         String data = directionItemList.get(i).getData();
                         textToSpeech.speak(data, TextToSpeech.QUEUE_FLUSH, null, null);
                         textInstruction.setText(data);
                         directionItemList.get(i).setPathInstruction(true);
-                    } else textToSpeech.speak("You are " + (int) distance
-                                    + " meters away from your next point.",
+                    } else textToSpeech.speak("Walk straight for the distance of "
+                                    + (int) distance + " meters.",
                             TextToSpeech.QUEUE_FLUSH, null, null);
-                    break;
                 } else {
                     new Runnable() {
                         @Override
@@ -442,6 +441,8 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             JSONObject routes = array.getJSONObject(0);
             JSONArray legs = routes.getJSONArray("legs");
             JSONObject jsonObject = legs.getJSONObject(0);
+            String source = jsonObject.getString("start_address");
+            String destination = jsonObject.getString("end_address");
             JSONArray steps = jsonObject.getJSONArray("steps");
             for (int i = 0; i < steps.length(); i++) {
                 JSONObject object = steps.getJSONObject(i);
@@ -462,6 +463,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 String points = polyline.getString("points");
                 directionItemList.add(new DirectionItem(data, startLat, startLng,
                         endLat, endLng, points, false));
+                updateRecentSearch(source, destination);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -508,6 +510,44 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             }
         };
         AppController.getInstance().addToRequestQueue(stringRequest, "location");
+    }
+
+    /**
+     * Updates the recent directions search to the database
+     */
+    private void updateRecentSearch(final String source, final String destination) {
+        StringRequest stringRequest = new StringRequest(Request.Method.POST,
+                Config.URL_API, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                try {
+                    JSONObject jsonObject = new JSONObject(response);
+                    String message = jsonObject.getString("message");
+                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                updateRecentSearch(source, destination);
+                Toast.makeText(MainActivity.this,
+                        "Network error! Please check your internet connection!",
+                        Toast.LENGTH_SHORT).show();
+            }
+        }) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("tag", "arrow");
+                params.put("imei", telephonyManager.getDeviceId());
+                params.put("source", source);
+                params.put("destination", destination);
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(stringRequest, "arrow");
     }
 
     /**
